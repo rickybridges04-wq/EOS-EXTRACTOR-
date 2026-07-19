@@ -1,1 +1,8 @@
+"""
+packer.py
 
+Temporary placeholder.
+"""
+
+def create_packs(documents, output_folder):
+    print("Pack creation skipped (placeholder).")
