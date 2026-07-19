@@ -1,38 +1,90 @@
 """
 markdown_detector.py
 
-Scans ChatGPT conversations for Markdown documents.
+Advanced Markdown document detector for ChatGPT exports.
+Version 2
 """
 
 import re
 
-
+# Matches filenames like:
+# 001_DOCUMENT.md
+# ENTERPRISE_STANDARD.md
+# My File.md
 FILENAME_PATTERN = re.compile(
-    r'([A-Za-z0-9_\- ]+\.md)',
+    r'([A-Za-z0-9 _\-.]+\.md)',
     re.IGNORECASE
+)
+
+# Matches Markdown headings
+HEADING_PATTERN = re.compile(
+    r'^\s*#{1,6}\s+.+',
+    re.MULTILINE
+)
+
+# Matches fenced Markdown/code blocks
+CODEBLOCK_PATTERN = re.compile(
+    r"```(?:markdown|md)?\n(.*?)```",
+    re.DOTALL | re.IGNORECASE
 )
 
 
 def extract_text(node):
     """
-    Safely extracts text from a ChatGPT message node.
+    Safely extract text from a ChatGPT message node.
     """
 
     try:
-        content = node["message"]["content"]
+        message = node.get("message")
 
-        if content["content_type"] == "text":
-            return "\n".join(content["parts"])
+        if not message:
+            return ""
+
+        content = message.get("content")
+
+        if not content:
+            return ""
+
+        if content.get("content_type") != "text":
+            return ""
+
+        return "\n".join(content.get("parts", []))
 
     except Exception:
         return ""
 
-    return ""
+
+def guess_filename(text, counter):
+
+    match = FILENAME_PATTERN.search(text)
+
+    if match:
+        return match.group(1).strip()
+
+    heading = HEADING_PATTERN.search(text)
+
+    if heading:
+
+        title = heading.group()
+
+        title = title.lstrip("#").strip()
+
+        title = re.sub(r"[<>:\"/\\\\|?*]", "_", title)
+
+        title = title.replace(" ", "_")
+
+        return f"{counter:03d}_{title}.md"
+
+    return f"{counter:03d}_Recovered_Document.md"
 
 
 def find_markdown_documents(conversations):
 
     documents = []
+
+    seen = set()
+
+    counter = 1
 
     for conversation in conversations:
 
@@ -42,21 +94,33 @@ def find_markdown_documents(conversations):
 
             text = extract_text(node)
 
-            if not text:
+            if not text.strip():
                 continue
 
-            filename_match = FILENAME_PATTERN.search(text)
+            filename = guess_filename(text, counter)
 
-            if filename_match:
+            content = text
 
-                filename = filename_match.group(1)
+            blocks = CODEBLOCK_PATTERN.findall(text)
 
-                documents.append(
-                    {
-                        "filename": filename,
-                        "content": text,
-                        "conversation": conversation.get("title", "Unknown")
-                    }
-                )
+            if blocks:
+                content = max(blocks, key=len)
+
+            key = (filename, content[:300])
+
+            if key in seen:
+                continue
+
+            seen.add(key)
+
+            documents.append(
+                {
+                    "filename": filename,
+                    "content": content,
+                    "conversation": conversation.get("title", "Unknown")
+                }
+            )
+
+            counter += 1
 
     return documents
