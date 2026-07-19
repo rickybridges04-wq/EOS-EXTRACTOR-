@@ -1,1 +1,34 @@
+"""
+parser.py
 
+Loads every conversations-*.json file from a ChatGPT export folder.
+"""
+
+import json
+from pathlib import Path
+
+
+def load_conversations(export_folder: Path):
+    conversations = []
+
+    json_files = sorted(export_folder.glob("conversations-*.json"))
+
+    if not json_files:
+        raise FileNotFoundError(
+            f"No conversations-*.json files found in {export_folder}"
+        )
+
+    print(f"Found {len(json_files)} export files.")
+
+    for file in json_files:
+        print(f"Loading {file.name}...")
+
+        with open(file, "r", encoding="utf-8") as f:
+            data = json.load(f)
+
+            if isinstance(data, list):
+                conversations.extend(data)
+            else:
+                conversations.append(data)
+
+    return conversations
