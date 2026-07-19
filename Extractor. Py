@@ -1,1 +1,70 @@
 
+"""
+EOS Extractor
+-------------
+
+Main entry point for recovering Markdown knowledge documents
+from a ChatGPT export.
+
+Author: Ricky Bridges
+"""
+
+from pathlib import Path
+
+from parser import load_conversations
+from markdown_detector import find_markdown_documents
+from writer import write_documents
+from index_builder import build_index
+from packer import create_packs
+from zip_builder import create_zip_archives
+
+
+EXPORT_FOLDER = Path("chatgpt_export")
+OUTPUT_FOLDER = Path("output")
+
+
+def banner():
+    print("=" * 70)
+    print("                 EOS KNOWLEDGE EXTRACTOR")
+    print("=" * 70)
+    print()
+
+
+def main():
+    banner()
+
+    if not EXPORT_FOLDER.exists():
+        print(f"Export folder not found: {EXPORT_FOLDER}")
+        print()
+        print("Create a folder named 'chatgpt_export'")
+        print("and place your conversations-*.json files inside it.")
+        return
+
+    conversations = load_conversations(EXPORT_FOLDER)
+
+    print(f"Loaded {len(conversations)} conversations.")
+
+    documents = find_markdown_documents(conversations)
+
+    print(f"Recovered {len(documents)} Markdown documents.")
+
+    OUTPUT_FOLDER.mkdir(exist_ok=True)
+
+    write_documents(documents, OUTPUT_FOLDER)
+
+    build_index(documents, OUTPUT_FOLDER)
+
+    create_packs(documents, OUTPUT_FOLDER)
+
+    create_zip_archives(OUTPUT_FOLDER)
+
+    print()
+    print("=" * 70)
+    print("Extraction Complete")
+    print("=" * 70)
+    print(f"Recovered Documents : {len(documents)}")
+    print(f"Output Folder       : {OUTPUT_FOLDER.resolve()}")
+
+
+if __name__ == "__main__":
+    main()
